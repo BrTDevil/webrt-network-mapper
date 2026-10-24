@@ -1,0 +1,7 @@
+/webrt-network-mapper
+/webrt-network-mapper.exe
+/dist/
+/data/
+*.db
+*.db-wal
+*.db-shm

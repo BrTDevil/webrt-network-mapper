@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Network Mapper
+GenericName=Inventar rețea și hartă locație
+Comment=Scanează rețeaua (LAN + Wi-Fi) și desenează harta locației
+Exec=webrt-network-mapper web
+Icon=webrt-network-mapper
+Terminal=false
+Categories=Network;Utility;
+Keywords=rețea;network;wifi;scan;hartă;inventar;

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webrt-network-mapper</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a73e8'/%3E%3Cg fill='none' stroke='white' stroke-width='2.5'%3E%3Ccircle cx='16' cy='9' r='3'/%3E%3Ccircle cx='8' cy='23' r='3'/%3E%3Ccircle cx='24' cy='23' r='3'/%3E%3Cpath d='M16 12v4M16 16l-6 5M16 16l6 5'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" title="webrt-network-mapper">
+    <svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><g fill="none" stroke="#fff" stroke-width="2.5"><circle cx="16" cy="9" r="3"/><circle cx="8" cy="23" r="3"/><circle cx="24" cy="23" r="3"/><path d="M16 12v4M16 16l-6 5M16 16l6 5"/></g></svg>
+    <span>Network Mapper</span>
+  </div>
+  <div class="tb-group">
+    <label class="tb-label" for="projectSel">Locație</label>
+    <select id="projectSel" title="Locația curentă — fiecare locație are inventarul și hărțile ei. Dublu-click pentru redenumire"></select>
+    <button class="icon-btn" id="projectMenuBtn" title="Locații: nouă, redenumește, editează, șterge, importă">⋯</button>
+  </div>
+  <div class="tb-group" id="mapGroup">
+    <label class="tb-label" for="mapSel">Etaj / zonă</label>
+    <select id="mapSel" title="Harta unui etaj / unei zone din locația curentă"></select>
+    <button class="icon-btn" id="mapMenuBtn" title="Etaje / zone: nouă, redenumește, șterge">⋯</button>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button data-tab="map" class="active">Hartă</button>
+    <button data-tab="devices">Dispozitive <span class="badge" id="devBadge"></span></button>
+    <button data-tab="wifi">Wi-Fi <span class="badge" id="wifiBadge"></span></button>
+    <button data-tab="bluetooth">Bluetooth <span class="badge" id="btBadge"></span></button>
+    <button data-tab="survey">Survey</button>
+    <button data-tab="history">Istoric</button>
+    <button data-tab="report">Raport</button>
+  </nav>
+  <div class="tb-actions">
+    <span id="saveState" class="save-state"></span>
+    <button id="scanBtn" class="primary" title="Scanează rețeaua (LAN + Wi-Fi)">Scan</button>
+    <button id="saveBtn" title="Salvează harta (Ctrl+S)">Salvează</button>
+    <button id="snapBtn" title="Salvează un instantaneu în folder, ca să-l poți compara mai târziu">Instantaneu</button>
+    <button id="exportBtn" title="Export">Export ▾</button>
+    <button class="icon-btn" id="themeBtn" title="Temă luminoasă / întunecată">◐</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ HARTĂ ============ -->
+  <section class="tab-panel active" id="tab-map">
+    <aside class="sidebar left">
+      <div class="panel">
+        <h4>Unelte</h4>
+        <div class="tools" id="tools"></div>
+        <div class="tool-opts" id="toolOpts"></div>
+      </div>
+      <div class="panel grow">
+        <h4>Icon-uri</h4>
+        <input type="search" id="iconSearch" placeholder="Caută: imprimantă, cameră, ospătar…">
+        <div id="palette" class="palette"></div>
+      </div>
+      <div class="panel" id="unplacedPanel">
+        <h4>Neplasate <span class="badge" id="unplacedCount"></span>
+          <button class="mini" id="autoLayoutBtn" style="margin-left:auto;text-transform:none;letter-spacing:0" title="Pune pe hartă toate dispozitivele neplasate, legate de router">⚡ Aranjează automat</button></h4>
+        <div id="unplaced" class="unplaced"></div>
+      </div>
+    </aside>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="canvas" tabindex="0"></canvas>
+      <canvas id="minimap" title="Minimap — click pentru a centra"></canvas>
+      <div class="canvas-hint" id="canvasHint"></div>
+    </div>
+
+    <aside class="sidebar right" id="props"></aside>
+
+    <footer class="statusbar">
+      <span>Zoom
+        <button class="mini" id="zoomOut" title="Micșorează (-)">−</button>
+        <span id="zoomVal">100%</span>
+        <button class="mini" id="zoomIn" title="Mărește (+)">+</button>
+        <button class="mini" id="fitBtn" title="Încadrează tot (F)">Încadrează</button>
+      </span>
+      <label>Grilă
+        <select id="gridSize"><option value="10">10</option><option value="20">20</option><option value="40">40</option></select>
+      </label>
+      <label class="check"><input type="checkbox" id="gridVis"> Grilă (G)</label>
+      <label class="check"><input type="checkbox" id="snapChk"> Snap (S)</label>
+      <label class="check"><input type="checkbox" id="ipChk" checked> IP pe hartă</label>
+      <label class="check"><input type="checkbox" id="lenChk"> Lungimi cabluri</label>
+      <label class="check"><input type="checkbox" id="mmChk" checked> Minimap</label>
+      <span id="cursorPos" class="mono">x: 0 y: 0</span>
+      <span class="spacer"></span>
+      <button class="mini" id="undoBtn" title="Undo (Ctrl+Z)">↶ Undo</button>
+      <button class="mini" id="redoBtn" title="Redo (Ctrl+Y)">↷ Redo</button>
+    </footer>
+  </section>
+
+  <!-- ============ DISPOZITIVE ============ -->
+  <section class="tab-panel" id="tab-devices">
+    <div class="page">
+      <div class="page-head">
+        <h2>Dispozitive</h2>
+        <div class="filters">
+          <input type="search" id="devSearch" placeholder="Caută nume, IP, MAC, vendor…">
+          <select id="devStatus">
+            <option value="">Toate</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline / dispărute</option>
+            <option value="new">Noi (ultimul scan)</option>
+            <option value="unplaced">Neplasate pe hartă</option>
+            <option value="unknown">Neidentificate</option>
+          </select>
+          <button id="addDeviceBtn">+ Dispozitiv manual</button>
+        </div>
+      </div>
+      <p class="muted small" id="devInfo"></p>
+      <div class="table-wrap"><table class="grid" id="devTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ WI-FI ============ -->
+  <section class="tab-panel" id="tab-wifi">
+    <div class="page">
+      <div class="page-head">
+        <h2>Rețele Wi-Fi</h2>
+        <div class="filters">
+          <label class="check"><input type="checkbox" id="wifiVisibleOnly"> Doar vizibile la ultimul scan</label>
+          <button id="wifiScanBtn">Scan Wi-Fi</button>
+        </div>
+      </div>
+      <div id="wifiWarnings"></div>
+      <div class="wifi-layout">
+        <div id="wifiGroups"></div>
+        <div class="channel-charts">
+          <h3>Canale 2.4 GHz</h3>
+          <div id="chart24"></div>
+          <h3>Canale 5 GHz</h3>
+          <div id="chart5"></div>
+          <p class="muted small">Pe 2.4 GHz doar canalele 1, 6 și 11 nu se suprapun. Barele arată câte rețele sunt pe fiecare canal (culoarea = semnalul cel mai puternic).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BLUETOOTH ============ -->
+  <section class="tab-panel" id="tab-bluetooth">
+    <div class="page">
+      <div class="page-head">
+        <h2>Bluetooth în apropiere</h2>
+        <div class="filters">
+          <input type="search" id="btSearch" placeholder="Caută nume, MAC, producător…">
+          <label class="check"><input type="checkbox" id="btNamedOnly" checked> Doar cu nume</label>
+          <label class="check"><input type="checkbox" id="btVisibleOnly"> Doar văzute la ultimul scan</label>
+          <button id="btScanBtn">Scan Bluetooth</button>
+        </div>
+      </div>
+      <p class="muted small">Descoperire <b>pasivă</b>: aplicația doar ascultă anunțurile pe care dispozitivele le emit singure (nume, tip, semnal). Nu se conectează, nu împerechează, nu încearcă PIN-uri. Utile: imprimante de bonuri Bluetooth, terminale POS, căști/boxe, cititoare de coduri. Un dispozitiv cu același nume ca unul din LAN e legat automat de el.</p>
+      <p class="muted small" id="btInfo"></p>
+      <div class="table-wrap"><table class="grid" id="btTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ SURVEY ============ -->
+  <section class="tab-panel" id="tab-survey">
+    <div class="page">
+      <div class="page-head">
+        <h2>Survey Wi-Fi</h2>
+        <div class="filters">
+          <button class="primary" id="surveyAddBtn">+ Punct survey pe hartă</button>
+        </div>
+      </div>
+      <div class="steps">
+        <p><b>Cum funcționează:</b> mergi cu laptopul în locația respectivă (lângă bar, în sală, pe terasă). Apasă „Punct survey pe hartă” și dă click pe hartă exact unde stai. Aplicația rulează un scan Wi-Fi și salvează semnalul fiecărui BSSID în acel punct. Repetă în cât mai multe locuri.</p>
+      </div>
+      <div class="survey-controls">
+        <label>Heatmap pentru SSID
+          <select id="heatSSID"><option value="">— fără heatmap —</option></select>
+        </label>
+        <label class="check"><input type="checkbox" id="apEstimate"> Arată poziția estimată a AP-urilor pe hartă</label>
+      </div>
+      <div id="surveyList"></div>
+    </div>
+  </section>
+
+  <!-- ============ ISTORIC / INSTANTANEE ============ -->
+  <section class="tab-panel" id="tab-history">
+    <div class="page">
+      <div class="page-head">
+        <h2>Istoric — instantanee salvate</h2>
+        <div class="filters">
+          <button class="primary" id="snapSaveBtn">Salvează instantaneu acum</button>
+        </div>
+      </div>
+      <div class="folder-bar">
+        <span class="muted">Folder:</span>
+        <code id="snapDir">…</code>
+        <button id="snapDirBtn">Schimbă folderul</button>
+        <button id="snapOpenBtn">Deschide folderul</button>
+        <button id="snapRefreshBtn" title="Reîncarcă lista (după ce ai redenumit/mutat fișiere din managerul de fișiere)">↻</button>
+      </div>
+      <p class="muted small">Fiecare instantaneu e un fișier <code>.netmap.json</code> cu tot proiectul (dispozitive, Wi-Fi, hărți, survey). Îl poți redenumi aici sau direct din managerul de fișiere, îl poți muta în subfoldere, și îl poți compara oricând cu starea de acum.</p>
+
+      <div class="compare-box">
+        <h3>Compară</h3>
+        <div class="compare-row">
+          <label>Înainte (A) <select id="cmpA"></select></label>
+          <span class="arrow">→</span>
+          <label>După (B) <select id="cmpB"></select></label>
+          <button class="primary" id="cmpBtn">Compară</button>
+        </div>
+        <div id="cmpResult"></div>
+      </div>
+
+      <h3>Instantanee</h3>
+      <div class="table-wrap"><table class="grid" id="snapTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ RAPORT ============ -->
+  <section class="tab-panel" id="tab-report">
+    <div class="page">
+      <div class="page-head">
+        <h2>Raport și export</h2>
+      </div>
+      <div class="export-grid">
+        <div class="card">
+          <h3>Raport PDF</h3>
+          <p class="muted">Copertă, rezumat, hartă (landscape), infrastructură wireless, dispozitive pe locații, recomandări, anexă survey.</p>
+          <label>Autor <input type="text" id="reportAuthor" placeholder="Nume (opțional)"></label>
+          <div class="btn-row">
+            <button class="primary" id="pdfBtn">Deschide raportul PDF</button>
+            <button id="previewBtn">Previzualizare</button>
+            <button id="htmlBtn">Descarcă HTML</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Hartă</h3>
+          <p class="muted">Harta curentă, pe fundal alb, cu legendă.</p>
+          <div class="btn-row">
+            <button data-png="1">PNG 1×</button>
+            <button data-png="2">PNG 2×</button>
+            <button data-png="4">PNG 4×</button>
+            <button id="svgBtn">SVG</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Date</h3>
+          <p class="muted">Tabel CSV (Excel) și backup JSON complet al proiectului.</p>
+          <div class="btn-row">
+            <button id="csvBtn">CSV dispozitive</button>
+            <button id="jsonBtn">Backup JSON</button>
+            <button id="importBtn">Importă backup…</button>
+          </div>
+        </div>
+      </div>
+      <iframe id="reportFrame" title="Previzualizare raport" hidden></iframe>
+    </div>
+  </section>
+</main>
+
+<input type="file" id="fileInput" hidden>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
